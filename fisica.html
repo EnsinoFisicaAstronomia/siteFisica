@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plano Inclinado — Simulação de Forças</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #1c2530;
+    --bg-panel: #232e3b;
+    --line: #3a4756;
+    --chalk: #e8ecef;
+    --chalk-dim: #93a1b0;
+    --incline: #8b6a4a;
+    --incline-dark: #6b4f34;
+    --block: #4a6fa5;
+    --block-edge: #7fa0d4;
+    --normal: #7ed9a8;
+    --friction: #f2a65a;
+    --weight: #e8677a;
+    --weight-comp: #b98fd1;
+    --accent: #7ed9a8;
+    --danger: #e8677a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 22px 22px;
+    color: var(--chalk);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 48px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 980px;
+    margin-bottom: 18px;
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .sub {
+    margin: 6px 0 0;
+    color: var(--chalk-dim);
+    font-size: 14px;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+
+  .layout {
+    width: 100%;
+    max-width: 980px;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 18px;
+  }
+
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  #stage-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #17202a 0%, #1c2530 70%);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--chalk-dim);
+  }
+
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #17202a;
+    border: 1px solid var(--line);
+  }
+  .status-line.sliding { color: var(--friction); border-color: var(--friction); }
+  .status-line.static { color: var(--normal); border-color: var(--normal); }
+
+  .controls { display: flex; flex-direction: column; gap: 18px; }
+
+  .control-block label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .control-block .val {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #17202a;
+    cursor: pointer;
+    margin-top: -6px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #17202a;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; }
+  input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
+
+  .hint { font-size: 11.5px; color: var(--chalk-dim); margin-top: 4px; }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+
+  button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #17202a;
+    color: var(--chalk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.active { border-color: var(--accent); color: var(--accent); }
+
+  .telemetry {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    row-gap: 7px;
+    column-gap: 10px;
+  }
+  .telemetry .k { color: var(--chalk-dim); }
+  .telemetry .v { text-align: right; }
+  .telemetry .divider { grid-column: 1 / -1; border-top: 1px dashed var(--line); margin: 2px 0; }
+
+  .c-normal { color: var(--normal); }
+  .c-friction { color: var(--friction); }
+  .c-weight { color: var(--weight); }
+  .c-net { color: #fff; font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Laboratório de Mecânica</p>
+  <h1>Bloco no Plano Inclinado</h1>
+  <p class="sub">Ajuste o ângulo θ e o coeficiente de atrito μ para observar como a Força Normal e o Atrito respondem em tempo real, e se o bloco permanece em equilíbrio ou desliza.</p>
+</header>
+
+<div class="layout">
+
+  <div class="card" id="stage-wrap">
+    <canvas id="stage" width="640" height="460"></canvas>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--weight)"></i> Peso (mg)</span>
+      <span><i class="swatch" style="background:var(--normal)"></i> Normal (N)</span>
+      <span><i class="swatch" style="background:var(--friction)"></i> Atrito (f)</span>
+      <span><i class="swatch" style="background:var(--weight-comp)"></i> Componentes de mg</span>
+    </div>
+    <div class="status-line" id="statusLine">—</div>
+  </div>
+
+  <div class="card controls">
+
+    <div class="control-block">
+      <label>Ângulo do plano (θ) <span class="val" id="thetaVal">30°</span></label>
+      <input type="range" id="theta" min="0" max="65" step="1" value="30">
+      <p class="hint">0° (plano horizontal) até 65°.</p>
+    </div>
+
+    <div class="control-block">
+      <label>Coef. de atrito (μ) <span class="val" id="muVal">0.30</span></label>
+      <input type="range" id="mu" min="0" max="1" step="0.01" value="0.30">
+      <p class="hint">Usado como μₑ (estático) e μc (cinético), por simplicidade.</p>
+    </div>
+
+    <div class="control-block">
+      <label>Massa do bloco (m) <span class="val" id="massVal">2.0 kg</span></label>
+      <input type="range" id="mass" min="0.5" max="10" step="0.5" value="2">
+    </div>
+
+    <div class="btn-row">
+      <button id="playBtn">▶ Iniciar deslizamento</button>
+      <button id="resetBtn">↺ Reiniciar posição</button>
+    </div>
+
+    <div class="telemetry" id="telemetry">
+      <div class="k">mg sen θ</div><div class="v" id="tMgSin">—</div>
+      <div class="k">mg cos θ</div><div class="v" id="tMgCos">—</div>
+      <div class="divider"></div>
+      <div class="k c-normal">N (Normal)</div><div class="v c-normal" id="tN">—</div>
+      <div class="k c-friction">f (Atrito)</div><div class="v c-friction" id="tF">—</div>
+      <div class="divider"></div>
+      <div class="k">f_máx (μN)</div><div class="v" id="tFmax">—</div>
+      <div class="k c-net">Força líquida</div><div class="v c-net" id="tNet">—</div>
+      <div class="k">Aceleração (a)</div><div class="v" id="tAccel">—</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const g = 9.81;
+
+const thetaSlider = document.getElementById('theta');
+const muSlider = document.getElementById('mu');
+const massSlider = document.getElementById('mass');
+const thetaVal = document.getElementById('thetaVal');
+const muVal = document.getElementById('muVal');
+const massVal = document.getElementById('massVal');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusLine = document.getElementById('statusLine');
+
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+let sliding = false;
+let blockPos = 0.85; // 0 = extremidade mais baixa, 1 = extremidade mais alta, fração ao longo do plano
+let velocity = 0;
+let lastT = null;
+let animId = null;
+
+function state() {
+  const thetaDeg = parseFloat(thetaSlider.value);
+  const theta = thetaDeg * Math.PI / 180;
+  const mu = parseFloat(muSlider.value);
+  const mass = parseFloat(massSlider.value);
+
+  const weight = mass * g;
+  const mgSin = weight * Math.sin(theta);
+  const mgCos = weight * Math.cos(theta);
+  const N = mgCos;
+  const fMax = mu * N;
+
+  let f, willSlide, netAlongIncline, accel;
+  if (mgSin <= fMax) {
+    // estático: atrito equilibra exatamente a componente da gravidade
+    f = mgSin;
+    willSlide = false;
+    netAlongIncline = 0;
+    accel = 0;
+  } else {
+    // cinético: atrito máximo atua para cima, resultante para baixo
+    f = fMax;
+    willSlide = true;
+    netAlongIncline = mgSin - fMax;
+    accel = netAlongIncline / mass;
+  }
+
+  return { thetaDeg, theta, mu, mass, weight, mgSin, mgCos, N, fMax, f, willSlide, netAlongIncline, accel };
+}
+
+function fmt(n) { return n.toFixed(2); }
+
+function updateReadout(s) {
+  thetaVal.textContent = s.thetaDeg + '°';
+  muVal.textContent = s.mu.toFixed(2);
+  massVal.textContent = s.mass.toFixed(1) + ' kg';
+
+  document.getElementById('tMgSin').textContent = fmt(s.mgSin) + ' N';
+  document.getElementById('tMgCos').textContent = fmt(s.mgCos) + ' N';
+  document.getElementById('tN').textContent = fmt(s.N) + ' N';
+  document.getElementById('tF').textContent = fmt(s.f) + ' N';
+  document.getElementById('tFmax').textContent = fmt(s.fMax) + ' N';
+  document.getElementById('tNet').textContent = fmt(s.netAlongIncline) + ' N';
+  document.getElementById('tAccel').textContent = fmt(s.accel) + ' m/s²';
+
+  if (s.willSlide) {
+    statusLine.textContent = '⚠ Deslizando: mg·senθ (' + fmt(s.mgSin) + ' N) > f_máx (' + fmt(s.fMax) + ' N)';
+    statusLine.className = 'status-line sliding';
+  } else {
+    statusLine.textContent = '✓ Equilíbrio estático: atrito equilibra mg·senθ';
+    statusLine.className = 'status-line static';
+  }
+}
+
+// --- Geometria e desenho ---
+
+function draw() {
+  const s = state();
+  updateReadout(s);
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const baseX = 70, baseY = H - 60;
+  const runLen = W - 140;
+  const riseLen = runLen * Math.tan(s.theta);
+  const topX = baseX + runLen;
+  const topY = baseY - Math.min(riseLen, H - 140);
+
+  // scale correction if angle steep -> recompute run to keep triangle on canvas
+  const maxRise = H - 140;
+  let effRun = runLen, effRise = riseLen;
+  if (riseLen > maxRise) {
+    effRise = maxRise;
+    effRun = maxRise / Math.tan(s.theta);
+  }
+  const apexX = baseX + effRun;
+  const apexY = baseY - effRise;
+
+  // chão
+  ctx.strokeStyle = '#3a4756';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(20, baseY);
+  ctx.lineTo(W - 20, baseY);
+  ctx.stroke();
+
+  // plano inclinado (triângulo)
+  ctx.beginPath();
+  ctx.moveTo(baseX, baseY);
+  ctx.lineTo(apexX, apexY);
+  ctx.lineTo(apexX, baseY);
+  ctx.closePath();
+  ctx.fillStyle = '#2a3644';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(baseX, baseY);
+  ctx.lineTo(apexX, apexY);
+  ctx.strokeStyle = '#8b6a4a';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // arco do ângulo
+  ctx.beginPath();
+  ctx.strokeStyle = '#93a1b0';
+  ctx.lineWidth = 1.2;
+  ctx.arc(baseX, baseY, 46, -s.theta, 0);
+  ctx.stroke();
+  ctx.fillStyle = '#93a1b0';
+  ctx.font = '13px IBM Plex Mono, monospace';
+  ctx.fillText('θ = ' + s.thetaDeg + '°', baseX + 54, baseY - 8);
+
+  // posição do bloco ao longo do plano
+  const inclineVecX = apexX - baseX, inclineVecY = apexY - baseY;
+  const inclineLen = Math.hypot(inclineVecX, inclineVecY);
+  const ux = inclineVecX / inclineLen, uy = inclineVecY / inclineLen; // unit vector up-incline
+  const nx = uy, ny = -ux; // unit normal (outward, away from surface, pointing up-left off the ramp)
+
+  const clamp = Math.max(0.06, Math.min(0.94, blockPos));
+  const along = clamp * inclineLen;
+  const cx = baseX + ux * along;
+  const cy = baseY + uy * along;
+
+  const half = 20;
+  const centerX = cx + nx * half;
+  const centerY = cy + ny * half;
+
+  // bloco (quadrado alinhado à superfície)
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(-s.theta);
+  ctx.fillStyle = '#4a6fa5';
+  ctx.strokeStyle = '#7fa0d4';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-half, -half, half * 2, half * 2, 4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // --- vetores de força a partir do centro do bloco ---
+  const scale = 2.1; // px por Newton (ajustado visualmente)
+
+  drawArrow(centerX, centerY, -0, s.weight * scale, '#e8677a', 'mg', 0, 1);
+  drawArrow(centerX, centerY, nx * s.N * scale, ny * s.N * scale, '#7ed9a8', 'N', nx, ny);
+
+  const fDir = s.willSlide ? 1 : 1; // atrito sempre para cima do plano neste cenário (impedindo/atrasando descida)
+  drawArrow(centerX, centerY, ux * s.f * scale * fDir, uy * s.f * scale * fDir, '#f2a65a', 'f', ux * fDir, uy * fDir);
+
+  // componentes do peso (tracejado, sutil)
+  drawArrow(centerX, centerY, -ux * s.mgSin * scale, -uy * s.mgSin * scale, '#b98fd1', 'mg·senθ', -ux, -uy, true);
+  drawArrow(centerX, centerY, -nx * s.mgCos * scale, -ny * s.mgCos * scale, '#b98fd1', 'mg·cosθ', -nx, -ny, true);
+}
+
+function drawArrow(x0, y0, dx, dy, color, label, ux, uy, dashed) {
+  const x1 = x0 + dx, y1 = y0 + dy;
+  const len = Math.hypot(dx, dy);
+  if (len < 2) return;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = dashed ? 1.4 : 2.4;
+  if (dashed) ctx.setLineDash([4, 3]);
+
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ponta da seta
+  const headLen = 9;
+  const angle = Math.atan2(dy, dx);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 7), y1 - headLen * Math.sin(angle - Math.PI / 7));
+  ctx.lineTo(x1 - headLen * Math.cos(angle + Math.PI / 7), y1 - headLen * Math.sin(angle + Math.PI / 7));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.font = (dashed ? '11px' : '12px') + " IBM Plex Mono, monospace";
+  ctx.fillText(label, x1 + 6 * Math.sign(dx || 1), y1 + 4 * Math.sign(dy || 1));
+  ctx.restore();
+}
+
+// --- animação de deslizamento ---
+
+function tick(t) {
+  if (lastT === null) lastT = t;
+  const dt = Math.min((t - lastT) / 1000, 0.05);
+  lastT = t;
+
+  const s = state();
+  if (sliding && s.willSlide) {
+    velocity += s.accel * dt;
+    blockPos -= (velocity * dt) / 4; // fator de escala visual (desce em direção à base)
+    if (blockPos <= 0.06) {
+      blockPos = 0.06;
+      sliding = false;
+      velocity = 0;
+      setPlayState(false);
+    }
+  } else if (sliding && !s.willSlide) {
+    // se o usuário reduzir o ângulo/aumentar μ durante o movimento, o bloco para
+    velocity = 0;
+    sliding = false;
+    setPlayState(false);
+  }
+
+  draw();
+  animId = requestAnimationFrame(tick);
+}
+
+function setPlayState(isPlaying) {
+  sliding = isPlaying;
+  playBtn.textContent = isPlaying ? '⏸ Pausar' : '▶ Iniciar deslizamento';
+  playBtn.classList.toggle('active', isPlaying);
+}
+
+playBtn.addEventListener('click', () => {
+  const s = state();
+  if (!sliding && !s.willSlide) {
+    statusLine.textContent = '✓ O bloco está em equilíbrio — aumente θ ou reduza μ para ele deslizar.';
+    statusLine.className = 'status-line static';
+    return;
+  }
+  setPlayState(!sliding);
+});
+
+resetBtn.addEventListener('click', () => {
+  blockPos = 0.85;
+  velocity = 0;
+  setPlayState(false);
+  draw();
+});
+
+[thetaSlider, muSlider, massSlider].forEach(el => {
+  el.addEventListener('input', () => draw());
+});
+
+lastT = null;
+animId = requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>
